@@ -1,0 +1,797 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RBA Code of Conduct - HANA</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;800&family=Sarabun:wght@400;500;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+    
+    <style>
+        body { font-family: 'Sarabun', 'Inter', sans-serif; background-color: #f0f9ff; overflow-x: hidden; }
+        .page { display: none; }
+        
+        /* Animations */
+        .float-up { animation: floatUp 1.2s cubic-bezier(0.22, 1, 0.36, 1) forwards; opacity: 0; transform: translateY(50px); }
+        .delay-1 { animation-delay: 0.2s; } .delay-2 { animation-delay: 0.4s; } .delay-3 { animation-delay: 0.6s; }
+        @keyframes floatUp { to { opacity: 1; transform: translateY(0); } }
+        .floating-bg { position: absolute; animation: floatHover 6s ease-in-out infinite; }
+        @keyframes floatHover { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-15px); } }
+
+        /* Grid */
+        .cell-doing { background-color: #fbbf24; color: white; }
+        .cell-done { background-color: #cbd5e1; color: white; }
+        .cell-correct { background-color: #22c55e; color: white; }
+        .cell-wrong { background-color: #ef4444; color: white; }
+        
+        /* Loading */
+        #loading-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(255, 255, 255, 0.98); z-index: 9999;
+            display: flex; justify-content: center; align-items: center; flex-direction: column;
+            text-align: center; padding: 20px;
+        }
+        .spinner { border: 4px solid #e0f2fe; border-top: 4px solid #0284c7; border-radius: 50%; width: 50px; height: 50px; animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        .trophy-gold { color: #fbbf24; } .trophy-silver { color: #94a3b8; } .trophy-bronze { color: #b45309; }
+        .confetti { position: absolute; top: 0; width: 20px; height: 20px; font-size: 24px; opacity: 0; animation: fall 4s linear infinite; }
+        @keyframes fall { 0% { transform: translateY(-10vh) rotate(0deg); opacity: 1; } 100% { transform: translateY(110vh) rotate(720deg); opacity: 0; } }
+
+        /* Bar Chart Animation */
+        .bar-fill { transition: width 1s ease-in-out; }
+        
+        /* Interactive Header */
+        .clickable-header { cursor: pointer; transition: all 0.2s; }
+        .clickable-header:hover { background-color: #e0f2fe; color: #0284c7; transform: scale(1.1); }
+    </style>
+</head>
+<body class="text-gray-800 relative">
+
+    <div id="app" class="w-full min-h-screen flex flex-col relative z-10">
+
+        <!-- Loading Overlay -->
+        <div id="loading-overlay">
+            <div class="spinner mb-6"></div>
+            <h2 class="text-sky-700 font-bold text-2xl mb-2">RBA Online</h2>
+            <div id="loading-log" class="text-sm text-gray-500 mb-6 font-mono h-6">กำลังเริ่มต้นระบบ...</div>
+            <button id="btn-force-reset" onclick="forceReset()" class="hidden bg-red-50 text-red-500 border border-red-200 px-6 py-3 rounded-lg hover:bg-red-100 transition font-bold shadow-sm text-sm flex items-center gap-2">
+                <i class="fa-solid fa-rotate-right"></i> รีเซ็ตระบบ
+            </button>
+            <p class="text-xs text-gray-300 mt-8 absolute bottom-4">v6.0 Question Analytics</p>
+        </div>
+        
+        <!-- Modal -->
+        <div id="message-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-[10000] flex justify-center items-center">
+            <div class="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-md text-center mx-4 transform scale-100 transition-transform">
+                <div id="modal-icon" class="text-5xl mb-4">⚠️</div>
+                <h3 id="modal-title" class="text-xl font-bold mb-2 text-gray-800">แจ้งเตือน</h3>
+                <p id="modal-message" class="text-gray-600 mb-6 text-sm"></p>
+                <button id="modal-close-btn" class="w-full bg-sky-600 text-white px-4 py-3 rounded-xl hover:bg-sky-700 transition font-bold shadow-lg">ตกลง</button>
+            </div>
+        </div>
+
+        <!-- 1. Landing Page -->
+        <div id="page-home" class="page w-full min-h-screen relative overflow-hidden bg-gradient-to-br from-sky-100 via-white to-blue-50 flex items-center justify-center" style="display: flex;">
+            <i class="fa-solid fa-leaf text-green-200 text-9xl absolute top-20 left-10 floating-bg" style="animation-delay: 0s;"></i>
+            <i class="fa-solid fa-microchip text-blue-100 text-9xl absolute bottom-20 right-10 floating-bg" style="animation-delay: 1s;"></i>
+            <i class="fa-solid fa-cloud text-white text-8xl absolute top-40 right-40 floating-bg opacity-50" style="animation-delay: 2s;"></i>
+            
+            <div class="relative z-20 text-center max-w-4xl mx-auto px-4">
+                <div class="float-up mb-8">
+                    <div class="inline-flex items-center gap-3 bg-white px-6 py-3 rounded-full shadow-md border border-sky-100">
+                        <i class="fa-solid fa-hospital text-sky-600 text-3xl"></i>
+                        <span class="text-2xl font-extrabold tracking-widest text-gray-800">HANA</span>
+                    </div>
+                </div>
+                <div class="flex justify-center items-end gap-4 md:gap-12 mb-8 float-up delay-1">
+                    <div class="text-center"><i class="fa-solid fa-industry text-slate-400 text-6xl md:text-8xl drop-shadow-lg"></i></div>
+                    <div class="text-center pb-4">
+                        <h1 class="text-6xl md:text-8xl font-black text-sky-800 drop-shadow-sm tracking-tighter">RBA</h1>
+                        <h2 class="text-2xl md:text-4xl font-bold text-sky-600 mt-2">Code of Conduct</h2>
+                    </div>
+                    <div class="text-center"><i class="fa-solid fa-leaf text-green-500 text-6xl md:text-8xl drop-shadow-lg rotate-12"></i></div>
+                </div>
+                <div class="float-up delay-2 mb-12">
+                    <div class="flex justify-center gap-4 text-4xl md:text-6xl text-orange-400 drop-shadow-md">
+                        <i class="fa-solid fa-child-reaching text-pink-400"></i><i class="fa-solid fa-child text-blue-400"></i>
+                        <i class="fa-solid fa-child-dress text-purple-400"></i><i class="fa-solid fa-child text-green-400"></i>
+                    </div>
+                </div>
+                <div class="flex flex-col sm:flex-row gap-6 justify-center items-center float-up delay-3">
+                    <button id="btn-go-teacher" class="group relative bg-white text-sky-700 px-10 py-4 rounded-full font-bold text-xl shadow-lg hover:shadow-xl transition-all transform hover:-translate-y-1 border-2 border-sky-100 overflow-hidden">
+                        <span class="relative z-10"><i class="fa-solid fa-chalkboard-user mr-2"></i> เข้าสู่ระบบครู</span>
+                        <div class="absolute inset-0 bg-sky-50 transform scale-x-0 group-hover:scale-x-100 transition-transform origin-left duration-300"></div>
+                    </button>
+                    <button id="btn-go-student" class="group relative bg-sky-600 text-white px-10 py-4 rounded-full font-bold text-xl shadow-lg hover:shadow-xl hover:bg-sky-700 transition-all transform hover:-translate-y-1 border-2 border-transparent">
+                        <span class="relative z-10"><i class="fa-solid fa-user-graduate mr-2"></i> เข้าสู่ระบบนักเรียน</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 2. Teacher Dashboard -->
+        <div id="page-teacher-dashboard" class="page w-full max-w-7xl mx-auto pt-6 px-4 pb-12" style="display: none;">
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-sky-100 flex flex-wrap justify-between items-center gap-4 mb-6">
+                <div class="flex items-center gap-4">
+                    <div class="bg-sky-100 p-3 rounded-xl text-sky-600"><i class="fa-solid fa-chart-pie text-2xl"></i></div>
+                    <div><h2 class="text-2xl font-bold text-slate-800">ห้องสอบ RBA Monitor</h2><p class="text-slate-500 text-sm">ผู้เข้าสอบ: <span id="student-count" class="font-bold text-sky-600">0</span> คน</p></div>
+                </div>
+                <div class="flex gap-3">
+                     <button id="btn-toggle-system" class="px-6 py-2.5 rounded-xl text-white font-bold shadow-md transition bg-gray-400 hover:bg-gray-500 flex items-center gap-2">
+                        <i class="fa-solid fa-power-off"></i> <span id="txt-system-status">Loading...</span>
+                    </button>
+                    <button onclick="window.location.reload()" class="px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold transition"><i class="fa-solid fa-sign-out-alt"></i></button>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <!-- Left: Leaderboard -->
+                <div class="lg:col-span-1 space-y-6">
+                    <div class="bg-gradient-to-br from-blue-600 to-sky-500 rounded-2xl shadow-lg p-6 text-white">
+                        <h3 class="text-xl font-bold mb-4 flex items-center gap-2"><i class="fa-solid fa-trophy text-yellow-300"></i> Top 5 Leaderboard</h3>
+                        <div class="space-y-3" id="leaderboard-list"><div class="text-center opacity-70 py-4">รอผลคะแนน...</div></div>
+                    </div>
+                    <!-- Controls -->
+                    <div class="bg-white rounded-2xl shadow-sm border border-sky-100 p-6">
+                        <h3 class="font-bold text-slate-700 mb-4">ควบคุมการแสดงผล</h3>
+                        <div class="space-y-4">
+                            <label class="flex items-center justify-between cursor-pointer group">
+                                <span class="text-slate-600 group-hover:text-sky-600 transition">แสดงชื่อนักเรียน</span>
+                                <input type="checkbox" id="toggle-names" class="w-5 h-5 accent-sky-600" checked>
+                            </label>
+                            <label class="flex items-center justify-between cursor-pointer group">
+                                <span class="text-slate-600 group-hover:text-sky-600 transition font-bold">เฉลยคำตอบ (ถูก/ผิด)</span>
+                                <input type="checkbox" id="toggle-answers" class="w-5 h-5 accent-green-500">
+                            </label>
+                            <div class="h-px bg-slate-100 my-2"></div>
+                            <div class="grid grid-cols-2 gap-3">
+                                <button id="btn-dl-excel" class="bg-emerald-500 text-white py-2 rounded-lg hover:bg-emerald-600 transition font-medium text-sm"><i class="fa-solid fa-file-excel"></i> Excel</button>
+                                <button id="btn-clear-db" class="bg-red-50 text-red-500 py-2 rounded-lg hover:bg-red-100 transition font-medium text-sm"><i class="fa-solid fa-trash"></i> ล้างระบบ</button>
+                            </div>
+                            <button id="btn-open-student-link" class="w-full border border-sky-200 text-sky-600 py-2 rounded-lg hover:bg-sky-50 transition font-medium text-sm">🔗 เปิดหน้าข้อสอบ (Tab ใหม่)</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right: Grid -->
+                <div class="lg:col-span-2 bg-white rounded-2xl shadow-sm border border-sky-100 flex flex-col overflow-hidden h-[600px]">
+                    <div class="p-4 border-b border-slate-100 bg-slate-50 font-bold text-slate-600 flex justify-between items-center">
+                        <span>ตารางคะแนนรวม <span class="text-xs font-normal text-slate-400 ml-2">(คลิกที่หัวข้อเพื่อดูรายละเอียด)</span></span>
+                        <span class="text-xs font-normal text-slate-400">Auto-update</span>
+                    </div>
+                    <div class="flex-1 overflow-auto p-0">
+                        <table class="w-full text-left border-collapse">
+                            <thead class="bg-white sticky top-0 z-10 text-xs uppercase text-slate-500 shadow-sm">
+                                <tr><th class="p-3 border-b w-12 text-center bg-slate-50">#</th><th class="p-3 border-b w-48 bg-slate-50">ชื่อ-สกุล</th><th class="p-3 border-b w-20 text-center bg-slate-50">สถานะ</th><th class="p-3 border-b w-16 text-center bg-slate-50 text-sky-700 font-bold">%</th></tr>
+                            </thead>
+                            <tbody id="grid-body" class="text-sm divide-y divide-slate-50"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 7. Question Detail Page (New Feature v6.0) -->
+        <div id="page-question-detail" class="page w-full max-w-4xl mx-auto pt-6 px-4 pb-12" style="display: none;">
+            <div class="bg-white p-8 rounded-2xl shadow-lg border border-slate-100">
+                <!-- Nav -->
+                <div class="flex items-center justify-between mb-6">
+                    <button onclick="show('page-teacher-dashboard')" class="text-sky-600 hover:text-sky-800 font-bold flex items-center gap-2">
+                        <i class="fa-solid fa-chevron-left"></i> กลับหน้าตารางรวม
+                    </button>
+                    <div class="flex gap-2">
+                        <button id="btn-prev-q" class="px-3 py-1 bg-slate-100 rounded hover:bg-slate-200"><i class="fa-solid fa-chevron-left"></i></button>
+                        <span class="px-3 py-1 bg-slate-50 rounded font-bold text-slate-600">ข้อ <span id="detail-q-num">1</span> / 15</span>
+                        <button id="btn-next-q" class="px-3 py-1 bg-slate-100 rounded hover:bg-slate-200"><i class="fa-solid fa-chevron-right"></i></button>
+                    </div>
+                </div>
+                
+                <!-- Question Content -->
+                <div class="mb-8">
+                    <h2 class="text-2xl font-bold text-slate-800 mb-4 leading-relaxed" id="detail-q-text">...</h2>
+                </div>
+
+                <!-- Action Bar -->
+                <div class="flex items-center gap-4 mb-6">
+                    <button id="btn-toggle-detail-results" class="bg-sky-500 text-white px-6 py-2.5 rounded-lg font-bold shadow hover:bg-sky-600 transition flex items-center gap-2">
+                        <span id="txt-detail-btn">แสดงผลลัพธ์</span>
+                    </button>
+                    <span class="text-slate-500 text-sm"><span id="detail-answered-count">0</span> คน ตอบแล้ว</span>
+                </div>
+
+                <!-- Results Bars (Hidden initially) -->
+                <div id="detail-results-container" class="space-y-4 opacity-50 pointer-events-none transition-all duration-300">
+                    <!-- Option True -->
+                    <div class="relative">
+                        <div class="flex items-center justify-between mb-1">
+                            <div class="flex items-center gap-2">
+                                <div id="icon-true" class="w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-bold bg-slate-200"></div>
+                                <span class="font-bold text-slate-700">ถูก (True)</span>
+                            </div>
+                            <span class="font-bold text-slate-600" id="pct-true">0%</span>
+                        </div>
+                        <div class="w-full bg-slate-100 rounded-full h-10 overflow-hidden relative">
+                            <div id="bar-true" class="bar-fill bg-green-200 h-full absolute left-0 top-0 flex items-center pl-3 text-green-800 font-bold" style="width: 0%"></div>
+                        </div>
+                    </div>
+
+                    <!-- Option False -->
+                    <div class="relative">
+                        <div class="flex items-center justify-between mb-1">
+                            <div class="flex items-center gap-2">
+                                <div id="icon-false" class="w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-bold bg-slate-200"></div>
+                                <span class="font-bold text-slate-700">ผิด (False)</span>
+                            </div>
+                            <span class="font-bold text-slate-600" id="pct-false">0%</span>
+                        </div>
+                        <div class="w-full bg-slate-100 rounded-full h-10 overflow-hidden relative">
+                            <div id="bar-false" class="bar-fill bg-red-200 h-full absolute left-0 top-0 flex items-center pl-3 text-red-800 font-bold" style="width: 0%"></div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="mt-8 p-4 bg-blue-50 rounded-lg text-sm text-blue-800 flex items-start gap-3">
+                    <i class="fa-solid fa-circle-info mt-1"></i>
+                    <div>
+                        <p class="font-bold">คำอธิบาย:</p>
+                        <p>กดปุ่ม "แสดงผลลัพธ์" เพื่อดูเฉลยและสถิติผู้ตอบในขณะนี้</p>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+
+        <!-- 3. Student Login -->
+        <div id="page-student-login" class="page m-auto bg-white p-8 rounded-2xl shadow-xl max-w-md w-full mt-10 border border-sky-50" style="display: none;">
+            <div class="text-center mb-8">
+                <div class="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4 text-green-600 text-3xl shadow-inner"><i class="fa-solid fa-user-graduate"></i></div>
+                <h2 class="text-2xl font-bold text-slate-800">เข้าห้องสอบ</h2>
+                <p class="text-slate-400 text-sm">กรุณากรอกรหัสประจำตัว</p>
+            </div>
+            <div class="space-y-5">
+                <input type="text" id="student-id" class="w-full px-4 py-3.5 border-2 border-slate-100 rounded-xl focus:ring-4 focus:ring-green-100 focus:border-green-500 outline-none text-center text-xl font-bold tracking-widest transition" placeholder="ID Code">
+                <div id="student-preview" class="hidden bg-green-50 p-4 rounded-xl text-center border border-green-100 animate-fade-in"><p class="font-bold text-green-800 text-lg" id="preview-name"></p><p class="text-sm text-green-600" id="preview-dept"></p></div>
+                <button id="btn-student-login" class="w-full bg-gradient-to-r from-green-500 to-emerald-600 text-white px-4 py-4 rounded-xl font-bold text-lg hover:shadow-lg hover:scale-[1.02] transition transform">เริ่มทำข้อสอบ <i class="fa-solid fa-arrow-right ml-2"></i></button>
+                <button onclick="location.reload()" class="w-full text-slate-400 text-sm hover:text-slate-600 mt-2">ยกเลิก</button>
+            </div>
+        </div>
+
+        <!-- 4. Student Exam -->
+        <div id="page-student-exam" class="page m-auto bg-white w-full max-w-3xl rounded-2xl shadow-2xl overflow-hidden mt-4 flex-col h-[85vh] border border-slate-200" style="display: none;">
+            <div class="bg-white p-5 border-b border-slate-100 flex justify-between items-center">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-full bg-sky-100 text-sky-600 flex items-center justify-center font-bold"><i class="fa-regular fa-user"></i></div>
+                    <div><h2 class="font-bold text-slate-800 text-sm" id="exam-student-name">Name</h2><p class="text-xs text-slate-500" id="exam-student-dept">Dept</p></div>
+                </div>
+                <div class="text-right"><span class="text-3xl font-black text-sky-600" id="q-current">1</span><span class="text-sm text-slate-400 font-medium">/15</span></div>
+            </div>
+            <div class="w-full bg-slate-100 h-1.5"><div id="progress-bar" class="bg-sky-500 h-1.5 transition-all duration-500" style="width: 0%"></div></div>
+            <div class="flex-1 p-6 md:p-10 overflow-y-auto flex flex-col justify-center bg-slate-50">
+                <div id="question-card" class="bg-white p-8 rounded-2xl shadow-sm border border-slate-100 animate-fade-in">
+                    <span class="inline-block px-3 py-1 rounded-md bg-sky-100 text-sky-700 text-xs font-bold mb-4 tracking-wider">คำถาม</span>
+                    <h3 class="text-xl md:text-2xl font-medium text-slate-800 mb-10 leading-relaxed" id="question-text">...</h3>
+                    <div class="space-y-4">
+                        <label class="flex items-center p-5 border-2 border-slate-100 rounded-xl cursor-pointer hover:bg-green-50 hover:border-green-200 transition-all group select-none" onclick="selectAnswer(true)">
+                            <div class="w-6 h-6 rounded-full border-2 border-slate-300 flex items-center justify-center group-hover:border-green-500 mr-4 bg-white" id="radio-true"></div>
+                            <span class="text-lg font-medium text-slate-600 group-hover:text-green-700">ถูก (True)</span>
+                        </label>
+                        <label class="flex items-center p-5 border-2 border-slate-100 rounded-xl cursor-pointer hover:bg-red-50 hover:border-red-200 transition-all group select-none" onclick="selectAnswer(false)">
+                            <div class="w-6 h-6 rounded-full border-2 border-slate-300 flex items-center justify-center group-hover:border-red-500 mr-4 bg-white" id="radio-false"></div>
+                            <span class="text-lg font-medium text-slate-600 group-hover:text-red-700">ผิด (False)</span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+            <div class="p-5 bg-white border-t border-slate-100 flex justify-between items-center">
+                <button id="btn-prev" class="px-6 py-3 rounded-xl font-bold text-slate-500 hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed transition flex items-center gap-2" disabled><i class="fa-solid fa-arrow-left"></i> ย้อนกลับ</button>
+                <button id="btn-next" class="px-8 py-3 rounded-xl font-bold bg-sky-600 text-white hover:bg-sky-700 shadow-lg hover:shadow-sky-200 transition flex items-center gap-2">ข้อถัดไป <i class="fa-solid fa-arrow-right"></i></button>
+                <button id="btn-submit" class="hidden px-8 py-3 rounded-xl font-bold bg-gradient-to-r from-green-500 to-emerald-600 text-white shadow-lg hover:shadow-green-200 transition transform hover:scale-105 flex items-center gap-2">ส่งคำตอบ <i class="fa-solid fa-check-circle"></i></button>
+            </div>
+        </div>
+
+        <!-- 5. Submitted -->
+        <div id="page-submitted" class="page m-auto bg-white p-12 rounded-3xl shadow-2xl text-center max-w-lg mt-10 border-4 border-green-50 relative overflow-hidden" style="display: none;">
+            <div id="confetti-container" class="absolute inset-0 pointer-events-none"></div>
+            <div class="relative z-10">
+                <div class="mb-6 text-8xl animate-bounce">🎉</div>
+                <h2 id="submit-title" class="text-3xl font-black text-slate-800 mb-2">ส่งคำตอบเรียบร้อย!</h2>
+                <p class="text-slate-500 text-lg mb-8">ขอบคุณที่ร่วมทำแบบทดสอบ</p>
+                <button onclick="location.reload()" class="bg-slate-100 text-slate-600 px-8 py-3 rounded-full font-bold hover:bg-slate-200 transition">กลับหน้าแรก</button>
+            </div>
+        </div>
+
+        <!-- 6. Teacher Login -->
+        <div id="page-teacher-login" class="page bg-white p-8 rounded-2xl shadow-lg max-w-md mx-auto mt-10" style="display: none;">
+            <h2 class="text-2xl font-bold text-center text-sky-700 mb-6">สำหรับครู</h2>
+            <div class="space-y-4">
+                <input type="password" id="teacher-room-code" class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-sky-500 outline-none" placeholder="กรอกรหัสห้อง...">
+                <button id="btn-teacher-login" class="w-full bg-sky-600 text-white px-4 py-2 rounded-md font-semibold hover:bg-sky-700 transition shadow-sm">เข้าสู่ระบบ</button>
+                <button onclick="location.reload()" class="w-full text-center text-gray-600 hover:text-sky-600 transition mt-2">กลับหน้าแรก</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Global Script -->
+    <script>
+        function forceReset() {
+            if(confirm("ระบบจะล้างค่าการเชื่อมต่อเก่าในเครื่องนี้ ยืนยัน?")) {
+                localStorage.clear(); sessionStorage.clear();
+                if(navigator.serviceWorker) navigator.serviceWorker.getRegistrations().then(r => { for(let reg of r) reg.unregister(); });
+                window.location.reload(true);
+            }
+        }
+    </script>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, getDoc, setDoc, updateDoc, onSnapshot, collection, query, enableNetwork, writeBatch, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyCr08U5KYGvxXu-DZ5qZOyVnU_1MJ-oY50",
+            authDomain: "rba-online-6342e.firebaseapp.com",
+            databaseURL: "https://rba-online-6342e-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "rba-online-6342e",
+            storageBucket: "rba-online-6342e.firebasestorage.app",
+            messagingSenderId: "50383344070",
+            appId: "1:50383344070:web:5003afe4c5530fc1d5a2c7",
+            measurementId: "G-G75D8551FP"
+        };
+
+        const TEACHER_CODE = "RBA";
+        const SHEET_URL = "https://docs.google.com/spreadsheets/d/163RszY_6sDDQXxWiPlkw7g5HCj_U4N49H7CMCmzWPEw/export?format=csv&gid=0";
+        const MASTER_QUESTIONS = [
+            { t: "RBA (Responsible Business Alliance) คือ มาตรฐานจรรยาบรรณแห่งพันธมิตรธุรกิจผู้มีความรับผิดชอบ", a: true },
+            { t: "CORPORATE CODE OF CONDUCT คือ ข้อกําหนดด้านจริยธรรมทางธุรกิจของบริษัท", a: true },
+            { t: "ข้อกําหนดด้านจริยธรรม เป็นบทบัญญัติมาตรฐานพฤติกรรมที่ผู้บริหารและพนักงานทุกคนต้องปฏิบัติตาม", a: true },
+            { t: "บริษัทฮานาฯ นําหลักการของ RBA มาปฏิบัติในฐานะคู้ค้ากับบริษัทสมาชิก RBA", a: true },
+            { t: "องค์ประกอบของRBA มีทัง้หมด 5 ส่วน คือ มาตรฐานแรงงาน, สุขภาพและความปลอดภัย, สิ่งแวดล้อม, ระบบบริหารการจัดการ, จริยธรรมทางธุรกิจ", a: true },
+            { t: "บริษัทฮานาฯ สามารถรับพนักงานอายุตํ่ากว่า 18 ปีเข้าทํางานได้โดยไม่ผิดจรรยาบรรณ", a: false },
+            { t: "แรงงานต้องไม่มีการปฏิบัติโดยใช้ความรุนแรงหรือไร้มนุษยธรรม รวมถึงการขู่เข็ญทางจิตใจหรือร่างกาย การล่วงละเมิดทางเพศ หรือการละเมิดด้วยวาจาต่อแรงงาน", a: true },
+            { t: "หากสถานประกอบการมีความปลอดภัยและมีสภาพสิ่งแวดล้อมที่ดีพนักงานก็มีขวัญและกําลังใจในการทํางานช่วยส่งผลให้คุณภาพของสินค้าและบริการมีคุณภาพมากขึ้น", a: true },
+            { t: "สถานการณ์และเหตุการณ์ในกรณีฉุกเฉินที่อาจเกิดขึ้น ต้องได้รับการตรวจและประเมินผล", a: true },
+            { t: "บริษัทจะต้องยึดถือการปฏิบัติตามกฎหมาย ระเบียบและข้อกําหนดของลูกค้าเกี่ยวกับการห้ามหรือการจํากัดสารเฉพาะในสินค้าและการผลิต เช่นเปลี่ยนมาใช้ผลิตภัณฑ์ RoHS", a: true },
+            { t: "พนักงานทุกคนสามารถติดสินบนได้ทุกรูปแบบ หากทําให้งานสําเร็จลุล่วงไปได้", a: false },
+            { t: "บริษัทจะต้องผลิต,ส่งมอบสินค้าและบริการตรงตามความต้องการของลูกค้า", a: true },
+            { t: "พนักงานทุกคนจะต้องเคารพสิทธิเกี่ยวกับทรัพย์สินทางปัญญาของลูกค้า โดยจะต้องไม่แอบถ่ายรูปหรือนําข้อมูลลูกค้าไปเผยแพร่โดยเด็ดขาด ถือว่าผิดกฏหมายและต้องถูกลงโทษ", a: true },
+            { t: "พนักงานทุกคนจะต้องใช้ทรัพย์สินของบริษัทเพื่อประโยชน์ในการดําเนินธุรกิจของบริษัทเท่านั้น ไม่ใช่เพื่อประโยชน์ส่วนตัว", a: true },
+            { t: "บริษัทฮานาฯ มีนโยบายสนับสนุนการมีส่วนร่วมของชุมชน ส่งเสริมความสัมพันธ์ทางสังคม ช่วยการพัฒนาทางสังคมและเศรษฐกิจให้มีความเข้มแข็ง", a: true }
+        ];
+
+        let db, auth;
+        let currentStudent = null, studentCache = null, allResults = [], showAnswers = false, showNames = true;
+        let configRef, studentsRef;
+        let studentQuestions = [], studentAnswersMap = {}, currentQIndex = 0;
+        
+        // Question Detail State
+        let currentDetailQuestionIndex = 0; // 0-14
+        let showDetailResults = false;
+
+        function updateLog(msg) {
+            const el = document.getElementById('loading-log');
+            if(el) el.textContent = msg;
+        }
+
+        async function init() {
+            try {
+                updateLog("เชื่อมต่อ Firebase...");
+                
+                setTimeout(() => {
+                    const overlay = document.getElementById('loading-overlay');
+                    if(overlay && overlay.style.display !== 'none') {
+                        updateLog("ใช้เวลานานกว่าปกติ...");
+                        document.getElementById('btn-force-reset').classList.remove('hidden');
+                    }
+                }, 5000);
+
+                const app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
+                
+                updateLog("ตรวจสอบสิทธิ์การเข้าถึง...");
+                configRef = doc(db, 'rba_system_config', 'main');
+                studentsRef = collection(db, 'rba_students');
+
+                onAuthStateChanged(auth, (user) => {
+                    if (user) {
+                        updateLog("เข้าสู่ระบบสำเร็จ!");
+                        setTimeout(() => {
+                            document.getElementById('loading-overlay').style.display = 'none';
+                            if(window.location.hash === '#student') show('page-student-login');
+                        }, 500);
+                    } else {
+                        updateLog("กำลังเข้าสู่ระบบแบบไม่ระบุตัวตน...");
+                        signInAnonymously(auth).catch(e => {
+                            console.error(e);
+                            showError("Login Failed: " + e.message + "\n\n(Check Internet or Firebase Console)");
+                            document.getElementById('btn-force-reset').classList.remove('hidden');
+                        });
+                    }
+                });
+            } catch(e) {
+                showError("System Error: " + e.message);
+                document.getElementById('btn-force-reset').classList.remove('hidden');
+            }
+        }
+
+        const show = (id) => {
+            document.querySelectorAll('.page').forEach(el => el.style.display = 'none');
+            document.getElementById(id).style.display = 'block';
+            if(id === 'page-student-exam' || id === 'page-home') document.getElementById(id).style.display = 'flex';
+        };
+
+        const showError = (msg) => {
+            document.getElementById('loading-overlay').style.display = 'none';
+            document.getElementById('modal-message').innerText = msg;
+            document.getElementById('message-modal').classList.remove('hidden');
+            document.getElementById('message-modal').classList.add('flex');
+        };
+        document.getElementById('modal-close-btn').onclick = () => document.getElementById('message-modal').classList.add('hidden');
+
+        // --- ACTIONS ---
+        document.getElementById('btn-go-teacher').onclick = () => show('page-teacher-login');
+        document.getElementById('btn-go-student').onclick = () => show('page-student-login');
+        document.querySelectorAll('.nav-home').forEach(b => b.onclick = () => location.reload());
+
+        document.getElementById('btn-teacher-login').onclick = () => {
+            if(document.getElementById('teacher-room-code').value === TEACHER_CODE) {
+                show('page-teacher-dashboard');
+                initTeacherDashboard();
+            } else alert("รหัสผิด");
+        };
+
+        function initTeacherDashboard() {
+            // Setup Table Header
+            const thead = document.querySelector('thead tr');
+            while(thead.children.length > 4) thead.removeChild(thead.lastChild);
+            MASTER_QUESTIONS.forEach((_, i) => {
+                const th = document.createElement('th');
+                th.className = "p-2 border-b text-center w-10 font-bold text-slate-400 text-xs clickable-header";
+                th.innerText = i + 1;
+                // Add click event for Question Detail View
+                th.onclick = () => openQuestionDetail(i);
+                thead.appendChild(th);
+            });
+
+            onSnapshot(configRef, (snap) => {
+                const isOpen = snap.exists() ? snap.data().isOpen : false;
+                const btn = document.getElementById('btn-toggle-system');
+                btn.innerHTML = isOpen ? `<i class="fa-solid fa-pause"></i> ปิดระบบ` : `<i class="fa-solid fa-play"></i> เปิดระบบ`;
+                btn.className = isOpen ? "px-6 py-2.5 rounded-xl text-white font-bold shadow-md transition bg-amber-500 hover:bg-amber-600 flex items-center gap-2" : "px-6 py-2.5 rounded-xl text-white font-bold shadow-md transition bg-emerald-500 hover:bg-emerald-600 flex items-center gap-2";
+                btn.onclick = async () => await setDoc(configRef, { isOpen: !isOpen });
+            });
+
+            onSnapshot(query(studentsRef), (snap) => {
+                allResults = [];
+                snap.forEach(d => allResults.push(d.data()));
+                renderGrid();
+                updateLeaderboard();
+                // If detail view is open, update it too
+                if(document.getElementById('page-question-detail').style.display === 'block') {
+                    renderQuestionDetail();
+                }
+            });
+
+            document.getElementById('toggle-answers').onchange = (e) => { showAnswers = e.target.checked; renderGrid(); };
+            document.getElementById('toggle-names').onchange = (e) => { showNames = e.target.checked; renderGrid(); };
+        }
+
+        // --- QUESTION DETAIL LOGIC ---
+        function openQuestionDetail(index) {
+            currentDetailQuestionIndex = index;
+            showDetailResults = false; // Reset state on open
+            show('page-question-detail');
+            renderQuestionDetail();
+        }
+        
+        function renderQuestionDetail() {
+            const q = MASTER_QUESTIONS[currentDetailQuestionIndex];
+            
+            // Header Info
+            document.getElementById('detail-q-num').innerText = currentDetailQuestionIndex + 1;
+            document.getElementById('detail-q-text').innerText = q.t;
+            
+            // Calc Stats
+            let trueCount = 0, falseCount = 0, totalAnswered = 0;
+            allResults.forEach(s => {
+                const ans = s.answers[currentDetailQuestionIndex];
+                if(ans === true) trueCount++;
+                if(ans === false) falseCount++;
+                if(ans !== null) totalAnswered++;
+            });
+            
+            document.getElementById('detail-answered-count').innerText = totalAnswered;
+            
+            // Update Button State
+            const btnToggle = document.getElementById('btn-toggle-detail-results');
+            const resultsContainer = document.getElementById('detail-results-container');
+            
+            if (showDetailResults) {
+                btnToggle.innerHTML = `<i class="fa-solid fa-eye-slash"></i> ซ่อนผลลัพธ์`;
+                btnToggle.className = "bg-slate-500 text-white px-6 py-2.5 rounded-lg font-bold shadow hover:bg-slate-600 transition flex items-center gap-2";
+                resultsContainer.classList.remove('opacity-50', 'pointer-events-none');
+                resultsContainer.classList.add('opacity-100');
+                
+                // Show Correct Answer Icon
+                const iconTrue = document.getElementById('icon-true');
+                const iconFalse = document.getElementById('icon-false');
+                
+                if(q.a === true) {
+                    iconTrue.className = "w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-bold bg-green-500";
+                    iconTrue.innerHTML = "✓";
+                    iconFalse.className = "w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-bold bg-slate-200";
+                    iconFalse.innerHTML = "";
+                } else {
+                    iconFalse.className = "w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-bold bg-green-500";
+                    iconFalse.innerHTML = "✓";
+                    iconTrue.className = "w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-bold bg-slate-200";
+                    iconTrue.innerHTML = "";
+                }
+                
+                // Calc Percentages
+                const pctTrue = totalAnswered > 0 ? Math.round((trueCount / totalAnswered) * 100) : 0;
+                const pctFalse = totalAnswered > 0 ? Math.round((falseCount / totalAnswered) * 100) : 0;
+                
+                document.getElementById('pct-true').innerText = pctTrue + "%";
+                document.getElementById('pct-false').innerText = pctFalse + "%";
+                
+                document.getElementById('bar-true').style.width = pctTrue + "%";
+                document.getElementById('bar-true').innerText = trueCount > 0 ? trueCount : ""; // Show count inside bar
+                
+                document.getElementById('bar-false').style.width = pctFalse + "%";
+                document.getElementById('bar-false').innerText = falseCount > 0 ? falseCount : "";
+
+            } else {
+                // Hidden State
+                btnToggle.innerHTML = `<i class="fa-solid fa-chart-simple"></i> แสดงผลลัพธ์`;
+                btnToggle.className = "bg-sky-500 text-white px-6 py-2.5 rounded-lg font-bold shadow hover:bg-sky-600 transition flex items-center gap-2";
+                resultsContainer.classList.add('opacity-50', 'pointer-events-none');
+                resultsContainer.classList.remove('opacity-100');
+                
+                // Reset Bars
+                document.getElementById('bar-true').style.width = "0%";
+                document.getElementById('bar-false').style.width = "0%";
+                document.getElementById('pct-true').innerText = "0%";
+                document.getElementById('pct-false').innerText = "0%";
+                document.getElementById('icon-true').className = "w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-bold bg-slate-200";
+                document.getElementById('icon-false').className = "w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-bold bg-slate-200";
+            }
+        }
+
+        // Detail Page Buttons
+        document.getElementById('btn-toggle-detail-results').onclick = () => {
+            showDetailResults = !showDetailResults;
+            renderQuestionDetail();
+        };
+        
+        document.getElementById('btn-prev-q').onclick = () => {
+            if(currentDetailQuestionIndex > 0) {
+                currentDetailQuestionIndex--;
+                showDetailResults = false; // Reset on change
+                renderQuestionDetail();
+            }
+        };
+        
+        document.getElementById('btn-next-q').onclick = () => {
+            if(currentDetailQuestionIndex < MASTER_QUESTIONS.length - 1) {
+                currentDetailQuestionIndex++;
+                showDetailResults = false; // Reset on change
+                renderQuestionDetail();
+            }
+        };
+
+        function renderGrid() {
+            const tbody = document.getElementById('grid-body');
+            tbody.innerHTML = '';
+            document.getElementById('student-count').innerText = allResults.length;
+            allResults.sort((a,b) => (b.status === 'submitted' ? 1 : 0) - (a.status === 'submitted' ? 1 : 0));
+
+            allResults.forEach((s, i) => {
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-slate-50 transition border-b border-slate-50";
+                tr.innerHTML += `<td class="p-3 text-center text-slate-400 text-xs">${i+1}</td>`;
+                const displayName = showNames ? s.name : `Student ${s.studentId.slice(-3)}`;
+                const statusDot = s.status === 'online' ? '<span class="inline-block w-2 h-2 bg-green-400 rounded-full animate-pulse mr-2"></span>' : '';
+                tr.innerHTML += `<td class="p-3"><div class="text-slate-700 font-medium text-sm">${statusDot}${displayName}</div><div class="text-xs text-slate-400">${s.dept}</div></td>`;
+                let badge = s.status === 'submitted' ? `<span class="px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-700 text-xs font-bold">ส่งแล้ว</span>` : `<span class="px-2 py-0.5 rounded-md bg-sky-100 text-sky-700 text-xs font-bold">กำลังทำ</span>`;
+                tr.innerHTML += `<td class="p-3 text-center">${badge}</td>`;
+                tr.innerHTML += `<td class="p-3 text-center font-bold text-slate-700 text-sm">${s.score !== null ? s.score.toFixed(0)+'%' : '-'}</td>`;
+                s.answers.forEach((ans, idx) => {
+                    let cls = "w-6 h-6 rounded-md mx-auto flex items-center justify-center text-[10px] font-bold transition-all ";
+                    let txt = "";
+                    if (ans === null) { cls += "bg-slate-100 text-slate-300"; txt="•"; }
+                    else {
+                        if(showAnswers) {
+                            const isCorrect = ans === MASTER_QUESTIONS[idx].a;
+                            if(isCorrect) { cls += "bg-emerald-500 text-white shadow-sm scale-110"; txt = "✓"; }
+                            else { cls += "bg-red-500 text-white shadow-sm scale-110"; txt = "✕"; }
+                        } else { cls += "bg-sky-500 text-white"; txt = ""; }
+                    }
+                    tr.innerHTML += `<td class="p-1"><div class="${cls}">${txt}</div></td>`;
+                });
+                tbody.appendChild(tr);
+            });
+        }
+
+        function updateLeaderboard() {
+            const ranked = allResults.filter(s => s.status === 'submitted').sort((a,b) => b.score - a.score || a.timeTaken - b.timeTaken).slice(0, 5);
+            const div = document.getElementById('leaderboard-list');
+            div.innerHTML = '';
+            if(ranked.length === 0) { div.innerHTML = `<div class="text-center opacity-70 py-4 text-sm">ยังไม่มีผู้ส่งคำตอบ</div>`; return; }
+            ranked.forEach((s, i) => {
+                let icon = `<span class="w-6 h-6 flex items-center justify-center bg-white/20 rounded text-sm font-bold">${i+1}</span>`;
+                if(i===0) icon = `<i class="fa-solid fa-trophy trophy-gold"></i>`;
+                if(i===1) icon = `<i class="fa-solid fa-medal trophy-silver"></i>`;
+                if(i===2) icon = `<i class="fa-solid fa-medal trophy-bronze"></i>`;
+                const item = document.createElement('div');
+                item.className = "flex items-center justify-between bg-white/10 p-2 rounded-lg backdrop-blur-sm";
+                item.innerHTML = `<div class="flex items-center gap-3">${icon}<div class="text-sm truncate max-w-[120px]" title="${s.name}">${s.name}</div></div><div class="text-right"><div class="font-bold text-yellow-300 text-sm">${s.score.toFixed(0)}%</div><div class="text-[10px] opacity-80">${s.timeTaken.toFixed(0)}s</div></div>`;
+                div.appendChild(item);
+            });
+        }
+
+        // --- STUDENT SYSTEM ---
+        async function fetchStudents() {
+            if(studentCache) return studentCache;
+            try {
+                const res = await fetch(SHEET_URL);
+                const csv = await res.text();
+                return new Promise(r => Papa.parse(csv, {header:true, skipEmptyLines:true, complete: res=>r(res.data)}));
+            } catch(e) { return []; }
+        }
+
+        document.getElementById('student-id').addEventListener('input', async (e) => {
+            const id = e.target.value.trim();
+            const box = document.getElementById('student-preview');
+            if(id.length < 3) { box.classList.add('hidden'); return; }
+            const list = await fetchStudents();
+            const s = list.find(x => x['รหัสประจำตัว'] == id);
+            if(s) {
+                document.getElementById('preview-name').innerText = `${s['ชื่อ']} ${s['นามสกุล']}`;
+                document.getElementById('preview-dept').innerText = s['แผนก'];
+                box.classList.remove('hidden');
+                studentCache = list;
+            } else box.classList.add('hidden');
+        });
+
+        document.getElementById('btn-student-login').onclick = async () => {
+            const id = document.getElementById('student-id').value.trim();
+            if(!id) return alert("กรุณากรอกรหัส");
+            const conf = await getDoc(configRef);
+            if(!conf.exists() || !conf.data().isOpen) return alert("ระบบยังไม่เปิด");
+            const list = await fetchStudents();
+            const s = list.find(x => x['รหัสประจำตัว'] == id);
+            if(!s) return alert("ไม่พบข้อมูลนักเรียน");
+
+            currentStudent = { id: s['รหัสประจำตัว'], name: `${s['ชื่อ']} ${s['นามสกุล']}`, dept: s['แผนก'], startTime: Date.now() };
+            const existing = await getDoc(doc(studentsRef, currentStudent.id));
+            if(existing.exists() && existing.data().status === 'submitted') return alert("คุณสอบไปแล้ว");
+
+            if(!existing.exists()) {
+                 await setDoc(doc(studentsRef, currentStudent.id), {
+                    studentId: currentStudent.id, name: currentStudent.name, dept: currentStudent.dept,
+                    status: 'online', score: null, answers: new Array(MASTER_QUESTIONS.length).fill(null)
+                });
+                setupRandomQuestions();
+            } else {
+                setupRandomQuestions(true);
+                const savedAnswers = existing.data().answers;
+                studentQuestions.forEach((q, localIdx) => { studentAnswersMap[q.originalIndex] = savedAnswers[q.originalIndex]; });
+            }
+            document.getElementById('exam-student-name').innerText = currentStudent.name;
+            document.getElementById('exam-student-dept').innerText = currentStudent.dept;
+            renderQuestion();
+            show('page-student-exam');
+        };
+
+        function setupRandomQuestions(restore = false) {
+            let qs = MASTER_QUESTIONS.map((q, i) => ({ ...q, originalIndex: i }));
+            const storageKey = `rba_order_${currentStudent.id}`;
+            const savedOrder = localStorage.getItem(storageKey);
+
+            if (savedOrder) {
+                const orderIndices = JSON.parse(savedOrder);
+                studentQuestions = orderIndices.map(i => qs[i]);
+            } else {
+                for (let i = qs.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [qs[i], qs[j]] = [qs[j], qs[i]];
+                }
+                studentQuestions = qs;
+                localStorage.setItem(storageKey, JSON.stringify(studentQuestions.map(q => q.originalIndex)));
+            }
+            currentQIndex = 0;
+            studentAnswersMap = {};
+        }
+
+        function renderQuestion() {
+            const q = studentQuestions[currentQIndex];
+            document.getElementById('q-current').innerText = currentQIndex + 1;
+            document.getElementById('question-text').innerText = q.t;
+            const pct = ((currentQIndex) / MASTER_QUESTIONS.length) * 100;
+            document.getElementById('progress-bar').style.width = `${pct}%`;
+            document.getElementById('btn-prev').disabled = currentQIndex === 0;
+            if(currentQIndex === studentQuestions.length - 1) {
+                document.getElementById('btn-next').classList.add('hidden');
+                document.getElementById('btn-submit').classList.remove('hidden');
+            } else {
+                document.getElementById('btn-next').classList.remove('hidden');
+                document.getElementById('btn-submit').classList.add('hidden');
+            }
+            updateRadioVisuals(studentAnswersMap[q.originalIndex]);
+        }
+
+        window.selectAnswer = async (val) => {
+            const q = studentQuestions[currentQIndex];
+            studentAnswersMap[q.originalIndex] = val;
+            updateRadioVisuals(val);
+            const masterArray = new Array(MASTER_QUESTIONS.length).fill(null);
+            for(let i=0; i<MASTER_QUESTIONS.length; i++) { if(studentAnswersMap[i] !== undefined) masterArray[i] = studentAnswersMap[i]; }
+            await updateDoc(doc(studentsRef, currentStudent.id), { answers: masterArray });
+        };
+
+        function updateRadioVisuals(val) {
+            const rTrue = document.getElementById('radio-true'); const rFalse = document.getElementById('radio-false');
+            rTrue.className = "w-6 h-6 rounded-full border-2 border-slate-300 flex items-center justify-center group-hover:border-green-500 mr-4 bg-white transition"; rTrue.innerHTML = ""; rTrue.parentElement.className = "flex items-center p-5 border-2 border-slate-100 rounded-xl cursor-pointer hover:bg-green-50 hover:border-green-200 transition-all group select-none";
+            rFalse.className = "w-6 h-6 rounded-full border-2 border-slate-300 flex items-center justify-center group-hover:border-red-500 mr-4 bg-white transition"; rFalse.innerHTML = ""; rFalse.parentElement.className = "flex items-center p-5 border-2 border-slate-100 rounded-xl cursor-pointer hover:bg-red-50 hover:border-red-200 transition-all group select-none";
+            if(val === true) { rTrue.className = "w-6 h-6 rounded-full border-2 border-green-500 flex items-center justify-center mr-4 bg-green-500 text-white"; rTrue.innerHTML = "<i class='fa-solid fa-check text-xs'></i>"; rTrue.parentElement.className = "flex items-center p-5 border-2 border-green-500 bg-green-50 rounded-xl cursor-pointer transition-all group select-none shadow-sm transform scale-[1.02]"; }
+            else if (val === false) { rFalse.className = "w-6 h-6 rounded-full border-2 border-red-500 flex items-center justify-center mr-4 bg-red-500 text-white"; rFalse.innerHTML = "<i class='fa-solid fa-check text-xs'></i>"; rFalse.parentElement.className = "flex items-center p-5 border-2 border-red-500 bg-red-50 rounded-xl cursor-pointer transition-all group select-none shadow-sm transform scale-[1.02]"; }
+        }
+
+        document.getElementById('btn-prev').onclick = () => { if(currentQIndex > 0) { currentQIndex--; renderQuestion(); }};
+        document.getElementById('btn-next').onclick = () => { 
+            const q = studentQuestions[currentQIndex];
+            if(studentAnswersMap[q.originalIndex] === undefined) return alert("กรุณาเลือกคำตอบ");
+            if(currentQIndex < studentQuestions.length - 1) { currentQIndex++; renderQuestion(); }
+        };
+        
+        document.getElementById('btn-open-student-link').onclick = () => {
+            const url = window.location.href.split('#')[0] + '#student';
+            const newWindow = window.open(url, '_blank');
+            if (!newWindow || newWindow.closed || typeof newWindow.closed == 'undefined') {
+                prompt("คลิกขวาแล้วเลือก Copy เพื่อนำลิงก์ไปส่งให้นักเรียน:", url);
+            }
+        };
+
+        document.getElementById('btn-submit').onclick = async () => {
+            const q = studentQuestions[currentQIndex];
+            if(studentAnswersMap[q.originalIndex] === undefined) return alert("กรุณาตอบข้อสุดท้าย");
+            if(!confirm("ยืนยันส่งคำตอบ?")) return;
+            let score = 0;
+            for(let i=0; i<MASTER_QUESTIONS.length; i++) { if(studentAnswersMap[i] === MASTER_QUESTIONS[i].a) score++; }
+            const finalScore = (score / MASTER_QUESTIONS.length) * 100;
+            const masterArray = new Array(MASTER_QUESTIONS.length).fill(null);
+            for(let i=0; i<MASTER_QUESTIONS.length; i++) { if(studentAnswersMap[i] !== undefined) masterArray[i] = studentAnswersMap[i]; }
+            await updateDoc(doc(studentsRef, currentStudent.id), { answers: masterArray, score: finalScore, status: 'submitted', timeTaken: (Date.now() - currentStudent.startTime) / 1000 });
+            if(finalScore === 100) { startConfetti(); document.getElementById('submit-title').innerText = "สุดยอด! 100 คะแนนเต็ม 🏆"; document.getElementById('submit-title').className = "text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-orange-500 mb-4 animate-pulse"; }
+            show('page-submitted');
+        };
+
+        function startConfetti() {
+             const c = document.getElementById('confetti-container'); c.innerHTML = ''; const emo = ['🎉','🌸','🌺','🌷','🌻','⭐','✨'];
+             for(let i=0; i<60; i++) { const d = document.createElement('div'); d.className = 'confetti'; d.textContent = emo[Math.floor(Math.random()*emo.length)]; d.style.left = Math.random()*100+'%'; d.style.animationDelay = Math.random()*2+'s'; d.style.animationDuration = (Math.random()*2 + 3)+'s'; c.appendChild(d); }
+        }
+        
+        document.getElementById('btn-dl-excel').onclick = () => {
+            if(allResults.length === 0) return alert("ไม่มีข้อมูล");
+            const data = allResults.map((s, i) => {
+                const row = { "ลำดับ": i+1, "รหัสนักเรียน": s.studentId, "ชื่อ-สกุล": s.name, "แผนก": s.dept, "สถานะ": s.status, "คะแนน (%)": s.score || 0, "เวลาที่ใช้ (วิ)": s.timeTaken ? s.timeTaken.toFixed(0) : '-' };
+                s.answers.forEach((ans, idx) => { let res = "ยังไม่ทำ"; if(ans !== null) { res = (ans === MASTER_QUESTIONS[idx].a) ? "ถูก" : "ผิด"; } row[`ข้อ ${idx+1}`] = res; }); return row;
+            });
+            const ws = XLSX.utils.json_to_sheet(data); const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "Results"); XLSX.writeFile(wb, `RBA_Results_${new Date().toISOString().slice(0,10)}.xlsx`);
+        };
+        
+        document.getElementById('btn-clear-db').onclick = async () => { if(confirm("⚠️ ยืนยันล้างข้อมูลทั้งหมด?")) { const batch = writeBatch(db); const snap = await getDocs(studentsRef); snap.forEach(d => batch.delete(d.ref)); await batch.commit(); await setDoc(configRef, { isOpen: false }); alert("ล้างเรียบร้อย"); }};
+
+        init();
+    </script>
+</body>
+</html>
